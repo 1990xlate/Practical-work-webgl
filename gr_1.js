@@ -284,10 +284,9 @@ const height = window.innerHeight || 2;
 
     function handleController( controller ) {
       try {
-          object.position.copy(controller.position);
-          // object.position.x = renderer.xr.getCamera(camera).position.x;
-          // object.position.y = renderer.xr.getCamera(camera).position.y;
-          // object.position.z = renderer.xr.getCamera(camera).position.z;
+          object.position.x = renderer.xr.getCamera(camera).position.x;
+          object.position.y = renderer.xr.getCamera(camera).position.y;
+          object.position.z = renderer.xr.getCamera(camera).position.z;
       } catch(err) {
 
       }
