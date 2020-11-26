@@ -221,30 +221,13 @@ const height = window.innerHeight || 2;
       new BoxLineGeometry( 666, 666, 666, 10, 10, 10 ),
       new THREE.LineBasicMaterial( { color: 0x0000000 } )
     );
-    room.geometry.translate( 0, 3, 0 );
+    room.geometry.translate( 0, 666, 0 );
     scene.add( room );
-
-    const geometry = new THREE.IcosahedronBufferGeometry( radius, 3 );
-
-    for ( let i = 0; i < 200; i ++ ) {
-
-      const object = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial( { color: Math.random() * 0xffffff } ) );
-
-      object.position.x = Math.random() * 4 - 2;
-      object.position.y = Math.random() * 4;
-      object.position.z = Math.random() * 4 - 2;
-
-      object.userData.velocity = new THREE.Vector3();
-      object.userData.velocity.x = Math.random() * 0.01 - 0.005;
-      object.userData.velocity.y = Math.random() * 0.01 - 0.005;
-      object.userData.velocity.z = Math.random() * 0.01 - 0.005;
-
-      room.add( object );
-
-    }
 
     scene.add(object);
   }
+
+    const ballGeometry = new THREE.IcosahedronBufferGeometry( radius, 3 );
 
   //On progress
   function onProgress(xhr) {
@@ -301,9 +284,10 @@ const height = window.innerHeight || 2;
 
     function handleController( controller ) {
       try {
-          object.position.x = renderer.xr.getCamera(camera).position.x;
-          object.position.y = renderer.xr.getCamera(camera).position.y;
-          object.position.z = renderer.xr.getCamera(camera).position.z;
+          object.position.copy(controller.position);
+          // object.position.x = renderer.xr.getCamera(camera).position.x;
+          // object.position.y = renderer.xr.getCamera(camera).position.y;
+          // object.position.z = renderer.xr.getCamera(camera).position.z;
       } catch(err) {
 
       }
@@ -317,6 +301,24 @@ const height = window.innerHeight || 2;
                 bullet.userData.velocity.y = ( Math.random() - 0.5 ) * 3;
                 bullet.userData.velocity.z = ( Math.random() - 9 );
                 bullet.userData.velocity.applyQuaternion( controller.quaternion );
+            } else {
+                const bullet = new THREE.Mesh( ballGeometry, new THREE.MeshLambertMaterial( { color: Math.random() * 0xffffff } ) );
+
+                bullet.position.copy( controller.position );
+
+                bullet.userData.velocity = new THREE.Vector3();
+                bullet.userData.velocity.x = ( Math.random() - 0.5 ) * 3;
+                bullet.userData.velocity.y = ( Math.random() - 0.5 ) * 3;
+                bullet.userData.velocity.z = ( Math.random() - 9 );
+                bullet.userData.velocity.applyQuaternion( controller.quaternion );
+
+                room.add( bullet );
+
+                if (count < 200) {
+                    count++;
+                } else {
+                    count = 0;
+                }
             }
 
             if ( count === room.children.length ) count = 0;
