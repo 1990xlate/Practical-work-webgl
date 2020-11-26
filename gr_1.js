@@ -4,6 +4,7 @@ import { OrbitControls } from "./three.js-dev/examples/jsm/controls/OrbitControl
 import { AnaglyphEffect } from './three.js-dev/examples/jsm/effects/AnaglyphEffect.js'
 import { VRButton } from './three.js-dev/examples/jsm/webxr/VRButton.js';
 import { XRControllerModelFactory } from './three.js-dev/examples/jsm/webxr/XRControllerModelFactory.js';
+import { BoxLineGeometry } from './three.js-dev/examples/jsm/geometries/BoxLineGeometry.js';
 
 
 export function gr_1() {
@@ -130,6 +131,9 @@ scene.add(cube2);
 
     let controller1, controller2;
     let controllerGrip1, controllerGrip2;
+    const radius = 0.08;
+    let normal = new THREE.Vector3();
+    const relativeVelocity = new THREE.Vector3();
 
     document.body.appendChild( VRButton.createButton( renderer ) );
 
@@ -181,6 +185,8 @@ scene.add(cube2);
     let room;
     let count = 0;
 
+    const clock = new THREE.Clock();
+
 
 //efect
 const width = window.innerWidth || 2;
@@ -190,18 +196,7 @@ const height = window.innerHeight || 2;
 
 
   //Animation loop
-  renderer.setAnimationLoop(function () {
- 
-cube.rotation.y += Math.PI/180;
-cube1.rotation.z += Math.PI/150;
-cube2.rotation.x += Math.PI/100;
-
-  orbit_controls.update();
-
-  handleController( controller1 );
-  handleController( controller2 );
-  renderer.render(scene,camera);
-  });
+  renderer.setAnimationLoop(render);
 
     renderer.xr.enabled = true;
   document.body.appendChild(renderer.domElement);
@@ -221,7 +216,32 @@ cube2.rotation.x += Math.PI/100;
     object.rotation.x = - Math.PI / 1;
     object.rotation.y = - Math.PI / 1.5 ;
     object.rotation.z = - Math.PI / 1 ;
-    
+
+    room = new THREE.LineSegments(
+      new BoxLineGeometry( 666, 666, 666, 10, 10, 10 ),
+      new THREE.LineBasicMaterial( { color: 0x0000000 } )
+    );
+    room.geometry.translate( 0, 3, 0 );
+    scene.add( room );
+
+    const geometry = new THREE.IcosahedronBufferGeometry( radius, 3 );
+
+    for ( let i = 0; i < 200; i ++ ) {
+
+      const object = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial( { color: Math.random() * 0xffffff } ) );
+
+      object.position.x = Math.random() * 4 - 2;
+      object.position.y = Math.random() * 4;
+      object.position.z = Math.random() * 4 - 2;
+
+      object.userData.velocity = new THREE.Vector3();
+      object.userData.velocity.x = Math.random() * 0.01 - 0.005;
+      object.userData.velocity.y = Math.random() * 0.01 - 0.005;
+      object.userData.velocity.z = Math.random() * 0.01 - 0.005;
+
+      room.add( object );
+
+    }
 
     scene.add(object);
   }
@@ -280,16 +300,24 @@ cube2.rotation.x += Math.PI/100;
     }
 
     function handleController( controller ) {
+      try {
+          object.position.x = renderer.xr.getCamera(camera).position.x;
+          object.position.y = renderer.xr.getCamera(camera).position.y;
+          object.position.z = renderer.xr.getCamera(camera).position.z;
+      } catch(err) {
 
+      }
         if ( controller.userData.isSelecting ) {
 
-            const object = room.children[ count ++ ];
+            const bullet = room.children[ count ++ ];
 
-            object.position.copy( controller.position );
-            object.userData.velocity.x = ( Math.random() - 0.5 ) * 3;
-            object.userData.velocity.y = ( Math.random() - 0.5 ) * 3;
-            object.userData.velocity.z = ( Math.random() - 9 );
-            object.userData.velocity.applyQuaternion( controller.quaternion );
+            if (bullet != undefined) {
+                bullet.position.copy( controller.position );
+                bullet.userData.velocity.x = ( Math.random() - 0.5 ) * 3;
+                bullet.userData.velocity.y = ( Math.random() - 0.5 ) * 3;
+                bullet.userData.velocity.z = ( Math.random() - 9 );
+                bullet.userData.velocity.applyQuaternion( controller.quaternion );
+            }
 
             if ( count === room.children.length ) count = 0;
 
@@ -298,84 +326,90 @@ cube2.rotation.x += Math.PI/100;
     }
 
     function render() {
-
         handleController( controller1 );
         handleController( controller2 );
 
         //
 
-        const delta = clock.getDelta() * 0.8; // slow down simulation
+        if (room != undefined) {
+            const delta = clock.getDelta() * 0.8; // slow down simulation
+            const range = 3 - radius;
 
-        const range = 3 - radius;
+            for ( let i = 0; i < room.children.length; i ++ ) {
 
-        for ( let i = 0; i < room.children.length; i ++ ) {
+                const bullet = room.children[ i ];
 
-            const object = room.children[ i ];
+                bullet.position.x += bullet.userData.velocity.x * delta;
+                bullet.position.y += bullet.userData.velocity.y * delta;
+                bullet.position.z += bullet.userData.velocity.z * delta;
 
-            object.position.x += object.userData.velocity.x * delta;
-            object.position.y += object.userData.velocity.y * delta;
-            object.position.z += object.userData.velocity.z * delta;
+                // keep objects inside room
 
-            // keep objects inside room
+                if ( bullet.position.x < - range || bullet.position.x > range ) {
 
-            if ( object.position.x < - range || object.position.x > range ) {
-
-                object.position.x = THREE.MathUtils.clamp( object.position.x, - range, range );
-                object.userData.velocity.x = - object.userData.velocity.x;
-
-            }
-
-            if ( object.position.y < radius || object.position.y > 6 ) {
-
-                object.position.y = Math.max( object.position.y, radius );
-
-                object.userData.velocity.x *= 0.98;
-                object.userData.velocity.y = - object.userData.velocity.y * 0.8;
-                object.userData.velocity.z *= 0.98;
-
-            }
-
-            if ( object.position.z < - range || object.position.z > range ) {
-
-                object.position.z = THREE.MathUtils.clamp( object.position.z, - range, range );
-                object.userData.velocity.z = - object.userData.velocity.z;
-
-            }
-
-            for ( let j = i + 1; j < room.children.length; j ++ ) {
-
-                const object2 = room.children[ j ];
-
-                normal.copy( object.position ).sub( object2.position );
-
-                const distance = normal.length();
-
-                if ( distance < 2 * radius ) {
-
-                    normal.multiplyScalar( 0.5 * distance - radius );
-
-                    object.position.sub( normal );
-                    object2.position.add( normal );
-
-                    normal.normalize();
-
-                    relativeVelocity.copy( object.userData.velocity ).sub( object2.userData.velocity );
-
-                    normal = normal.multiplyScalar( relativeVelocity.dot( normal ) );
-
-                    object.userData.velocity.sub( normal );
-                    object2.userData.velocity.add( normal );
+                    bullet.position.x = THREE.MathUtils.clamp( bullet.position.x, - range, range );
+                    bullet.userData.velocity.x = - bullet.userData.velocity.x;
 
                 }
 
+                if ( bullet.position.y < radius || bullet.position.y > 6 ) {
+
+                    bullet.position.y = Math.max( bullet.position.y, radius );
+
+                    bullet.userData.velocity.x *= 0.98;
+                    bullet.userData.velocity.y = - bullet.userData.velocity.y * 0.8;
+                    bullet.userData.velocity.z *= 0.98;
+
+                }
+
+                if ( bullet.position.z < - range || bullet.position.z > range ) {
+
+                    bullet.position.z = THREE.MathUtils.clamp( bullet.position.z, - range, range );
+                    bullet.userData.velocity.z = - bullet.userData.velocity.z;
+
+                }
+
+                for ( let j = i + 1; j < room.children.length; j ++ ) {
+
+                    const object2 = room.children[ j ];
+
+                    normal.copy( bullet.position ).sub( object2.position );
+
+                    const distance = normal.length();
+
+                    if ( distance < 2 * radius ) {
+
+                        normal.multiplyScalar( 0.5 * distance - radius );
+
+                        bullet.position.sub( normal );
+                        object2.position.add( normal );
+
+                        normal.normalize();
+
+                        relativeVelocity.copy( bullet.userData.velocity ).sub( object2.userData.velocity );
+
+                        normal = normal.multiplyScalar( relativeVelocity.dot( normal ) );
+
+                        bullet.userData.velocity.sub( normal );
+                        object2.userData.velocity.add( normal );
+
+                    }
+
+                }
+
+                bullet.userData.velocity.y -= 9.8 * delta;
+
             }
-
-            object.userData.velocity.y -= 9.8 * delta;
-
         }
 
-        renderer.render( scene, camera );
 
+        cube.rotation.y += Math.PI/180;
+        cube1.rotation.z += Math.PI/150;
+        cube2.rotation.x += Math.PI/100;
+
+        orbit_controls.update();
+
+        renderer.render( scene, camera );
     }
 
 
